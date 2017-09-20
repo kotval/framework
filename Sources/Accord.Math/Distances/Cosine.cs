@@ -26,20 +26,14 @@ namespace Accord.Math.Distances
     using System.Runtime.CompilerServices;
 
     /// <summary>
-    ///   Cosine distance.
+    ///   Cosine distance. For a proper distance metric, see <see cref="Angular"/>.
     /// </summary>
     /// 
+    /// <seealso cref="Angular"/>
+    /// 
     [Serializable]
-    public sealed class Cosine : IDistance<double[]>, ISimilarity<double[]>
+    public struct Cosine : IDistance<double[]>, ISimilarity<double[]>
     {
-        /// <summary>
-        ///   Initializes a new instance of the <see cref="Cosine"/> class.
-        /// </summary>
-        /// 
-        public Cosine()
-        {
-        }
-
         /// <summary>
         ///   Computes the distance <c>d(x,y)</c> between points
         ///   <paramref name="x"/> and <paramref name="y"/>.

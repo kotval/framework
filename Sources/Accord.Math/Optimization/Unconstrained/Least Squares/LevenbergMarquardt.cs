@@ -27,6 +27,7 @@ namespace Accord.Math.Optimization
     using Accord.Math;
     using Accord.Math.Decompositions;
     using System.Threading;
+    using System.Collections.Generic;
 
     /// <summary>
     ///   Levenberg-Marquardt algorithm for solving Least-Squares problems.
@@ -36,11 +37,10 @@ namespace Accord.Math.Optimization
     {
         private const double lambdaMax = 1e25;
 
-
         // Levenberg-Marquardt variables
         private double[][] jacobian;
         private double[][] hessian;
-
+        private List<NonlinearConstraint> constraints;
         private double[] diagonal;
         private double[] gradient;
         private double[] weights;
@@ -63,7 +63,6 @@ namespace Accord.Math.Optimization
 
         JaggedCholeskyDecomposition decomposition;
 
-
         /// <summary>
         ///   Gets or sets a parameterized model function mapping input vectors
         ///   into output values, whose optimum parameters must be found.
@@ -75,7 +74,6 @@ namespace Accord.Math.Optimization
         /// 
         public LeastSquaresFunction Function { get; set; }
 
-
         /// <summary>
         ///   Gets or sets a function that computes the gradient vector in respect
         ///   to the function parameters, given a set of input and output values.
@@ -86,6 +84,15 @@ namespace Accord.Math.Optimization
         /// </value>
         /// 
         public LeastSquaresGradientFunction Gradient { get; set; }
+
+        /// <summary>
+        /// Gets or sets a collection of functions which must remain positive for a solution to be reasonable.
+        /// </summary>
+        public List<NonlinearConstraint> Constraints
+        {
+            get { return constraints; }
+            set { constraints = value; }
+        }
 
         /// <summary>
         ///   Gets or sets parallelization options.
@@ -151,7 +158,6 @@ namespace Accord.Math.Optimization
             set { v = value; }
         }
 
-
         /// <summary>
         ///   Gets the number of variables (free parameters) in the optimization problem.
         /// </summary>
@@ -164,7 +170,6 @@ namespace Accord.Math.Optimization
         {
             get { return numberOfParameters; }
         }
-
 
         /// <summary>
         ///   Gets or sets the number of blocks to divide the 
@@ -208,7 +213,6 @@ namespace Accord.Math.Optimization
             get { return hessian; }
         }
 
-
         /// <summary>
         ///   Gets standard error for each parameter in the solution.
         /// </summary>
@@ -247,7 +251,16 @@ namespace Accord.Math.Optimization
 
             this.ParallelOptions = new ParallelOptions();
         }
-
+        /// <summary>
+        ///   Initializes a new instance of the <see cref="LevenbergMarquardt"/> class.
+        /// </summary>
+        /// 
+        /// <param name="parameters">The number of free parameters in the optimization problem.</param>
+        /// <param name="constraints">Positivity constraints as functions</param>
+        public LevenbergMarquardt(int parameters, List<NonlinearConstraint> constraints) : this(parameters)
+        {
+            this.constraints = constraints;
+        }
 
         /// <summary>
         ///   Attempts to find the best values for the parameter vector
@@ -270,7 +283,6 @@ namespace Accord.Math.Optimization
             // Set Gradient vector to zero
             Array.Clear(gradient, 0, gradient.Length);
 
-
             // Divide the problem into blocks. Instead of computing
             // a single Jacobian and a single error vector, we will
             // be computing multiple Jacobians for smaller problems
@@ -291,8 +303,6 @@ namespace Accord.Math.Optimization
             // Re-allocate error vector only if needed
             if (errors == null || errors.Length < jacobianSize)
                 errors = new double[jacobianSize];
-
-
 
             // For each block
             for (int s = 0; s <= Blocks; s++)
@@ -315,16 +325,15 @@ namespace Accord.Math.Optimization
                         + " Please make sure that there are no constant columns in the input data.");
                 }
 
-
                 // Compute error gradient using Jacobian
                 for (int i = 0; i < jacobian.Length; i++)
                 {
                     double sum = 0;
+
                     for (int j = 0; j < jacobianSize; j++)
                         sum += jacobian[i][j] * errors[j];
                     gradient[i] += sum;
                 }
-
 
                 // Compute Quasi-Hessian Matrix approximation
                 //  using the outer product Jacobian (H ~ J'J)
@@ -339,6 +348,7 @@ namespace Accord.Math.Optimization
                         double[] jj = jacobian[j];
 
                         double sum = 0;
+
                         for (int k = 0; k < jj.Length; k++)
                             sum += ji[k] * jj[k];
 
@@ -352,7 +362,6 @@ namespace Accord.Math.Optimization
                 });
             }
 
-
             // Store the Hessian's diagonal for future computations. The
             // diagonal will be destroyed in the decomposition, so it can
             // still be updated on every iteration by restoring this copy.
@@ -364,11 +373,9 @@ namespace Accord.Math.Optimization
             for (int i = 0; i < solution.Length; i++)
                 weights[i] = solution[i];
 
-
             // Define the objective function:
             double objective = sumOfSquaredErrors;
             double current = objective + 1.0;
-
 
             // Begin of the main Levenberg-Marquardt method
             lambda /= v;
@@ -386,11 +393,9 @@ namespace Accord.Math.Optimization
                 for (int i = 0; i < diagonal.Length; i++)
                     hessian[i][i] = diagonal[i] + 2 * lambda;
 
-
                 // Decompose to solve the linear system. The Cholesky decomposition
                 // is done in place, occupying the Hessian's lower-triangular part.
                 decomposition = new JaggedCholeskyDecomposition(hessian, robust: true, inPlace: true);
-
 
                 // Check if the decomposition exists
                 if (decomposition.IsUndefined)
@@ -401,15 +406,12 @@ namespace Accord.Math.Optimization
                     continue;
                 }
 
-
                 // Solve using Cholesky decomposition
                 deltas = decomposition.Solve(gradient);
-
 
                 // Update weights using the calculated deltas
                 for (int i = 0; i < solution.Length; i++)
                     solution[i] = weights[i] + deltas[i];
-
 
                 // Calculate the new error
                 sumOfSquaredErrors = ComputeError(inputs, outputs);
@@ -424,7 +426,6 @@ namespace Accord.Math.Optimization
             // If this iteration caused a error drop, then next iteration
             //  will use a smaller damping factor.
             lambda /= v;
-
 
             return Value = sumOfSquaredErrors;
         }
@@ -446,15 +447,27 @@ namespace Accord.Math.Optimization
             {
                 double actual = Function(solution, input[i]);
                 double expected = output[i];
+                double[] penalty = new double[constraints.Count];
+                double penaltyWeight = 100000;
+
+                if (!(constraints == null || constraints.Count == 0))
+                {
+                    foreach (NonlinearConstraint c in constraints)
+                    {
+                        int j = 0;
+                        penalty[j] = (c.GetViolation(weights) * penaltyWeight);
+                        if (penalty[j] > 0) penalty[j] = 0;
+                        j++;
+                    }
+                }
 
                 double e = expected - actual;
                 sumOfSquaredErrors += e * e;
+                foreach (double p in penalty) sumOfSquaredErrors -= p;
             }
 
             return sumOfSquaredErrors / 2.0;
         }
-
-
 
         private double computeErrors(double[][] input, double[] output, int[] block)
         {
@@ -465,9 +478,23 @@ namespace Accord.Math.Optimization
             {
                 double actual = Function(solution, input[i]);
                 double expected = output[i];
+                double[] penalty = new double[constraints.Count];
+                double penaltyWeight = 1e8;
+
+                if (!(constraints == null || constraints.Count == 0))
+                {
+                    foreach (NonlinearConstraint c in constraints)
+                    {
+                        int j = 0;
+                        penalty[j] = (c.GetViolation(weights) * penaltyWeight);
+                        //if (penalty[j] > 0) penalty[j] = 0;
+                        j++;
+                    }
+                }
 
                 double e = expected - actual;
                 sumOfSquaredErrors += e * e;
+                foreach (double p in penalty) sumOfSquaredErrors -= p;
 
                 errors[i] = e;
             }
@@ -491,6 +518,5 @@ namespace Accord.Math.Optimization
                     jacobian[j][i] = derivatives[j];
             }
         }
-
     }
 }

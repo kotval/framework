@@ -24,8 +24,9 @@ namespace Accord.Statistics.Models.Regression.Fitting
 {
     using System;
     using Accord.Math.Optimization;
-using Accord.MachineLearning;
+    using Accord.MachineLearning;
     using System.Threading;
+    using System.Collections.Generic;
 
     /// <summary>
     ///   Non-linear Least Squares for <see cref="NonlinearRegression"/> optimization.
@@ -90,6 +91,9 @@ using Accord.MachineLearning;
         IRegressionFitting
 #pragma warning restore 612, 618
     {
+        [NonSerialized]
+        CancellationToken token = new CancellationToken();
+
         private ILeastSquaresMethod solver;
         private NonlinearRegression regression;
         private bool computeStandardErrors = true;
@@ -157,7 +161,31 @@ using Accord.MachineLearning;
             this.regression = regression;
         }
 
+        /// <summary>
+        ///  This nonlinear regression takes a colletion of linear constraints. It is only to be used with LevenbergMarquardt
+        /// </summary>
+        /// <param name="regression"></param>
+        /// <param name="algorithm"></param>
+        /// <param name="constraints"></param>
+        public NonlinearLeastSquares(NonlinearRegression regression, LevenbergMarquardt algorithm, List<NonlinearConstraint> constraints)
+        {
+            if (regression == null)
+                throw new ArgumentNullException("regression");
 
+            if (algorithm == null)
+                throw new ArgumentNullException("algorithm");
+
+            if (regression.Gradient == null)
+                throw new ArgumentException("The regression must have a gradient function defined.", "regression");
+
+            algorithm.Constraints = constraints;
+            this.solver = algorithm;
+            this.solver.Solution = regression.Coefficients;
+            this.solver.Function = new LeastSquaresFunction(regression.Function);
+            this.solver.Gradient = new LeastSquaresGradientFunction(regression.Gradient);
+            this.regression = regression;
+
+        }
 
         /// <summary>
         ///   Runs the fitting algorithm.
@@ -182,7 +210,11 @@ using Accord.MachineLearning;
         /// Gets or sets a cancellation token that can be used to
         /// stop the learning algorithm while it is running.
         /// </summary>
-        public CancellationToken Token { get; set; }
+        public CancellationToken Token
+        {
+            get { return token; }
+            set { token = value; }
+        }
 
         /// <summary>
         /// Learns a model that can map the given inputs to the given outputs.

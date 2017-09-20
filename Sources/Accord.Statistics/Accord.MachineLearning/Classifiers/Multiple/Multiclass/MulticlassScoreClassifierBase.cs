@@ -94,9 +94,9 @@ namespace Accord.MachineLearning
         /// </returns>
         public override int Decide(TInput input)
         {
-            double max = Double.NegativeInfinity;
+            double max = Score(input, classIndex: 0);
             int imax = 0;
-            for (int i = 0; i < NumberOfOutputs; i++)
+            for (int i = 1; i < NumberOfOutputs; i++)
             {
                 double d = Score(input, classIndex: i);
                 if (d > max)
@@ -703,6 +703,9 @@ namespace Accord.MachineLearning
             return Scores(input, result);
         }
 
+
+
+
         /// <summary>
         /// Views this instance as a multi-label distance classifier,
         /// giving access to more advanced methods, such as the prediction
@@ -714,6 +717,17 @@ namespace Accord.MachineLearning
         new public IMultilabelScoreClassifier<TInput> ToMultilabel()
         {
             return (IMultilabelScoreClassifier<TInput>)this;
+        }
+
+        /// <summary>
+        /// Views this instance as a multi-class generative classifier.
+        /// </summary>
+        /// <returns>
+        /// This instance seen as an <see cref="IMulticlassLikelihoodClassifier{TInput}" />.
+        /// </returns>
+        public IClassifier<TInput, int> ToMulticlass()
+        {
+            return (IClassifier<TInput, int>)this;
         }
     }
 }

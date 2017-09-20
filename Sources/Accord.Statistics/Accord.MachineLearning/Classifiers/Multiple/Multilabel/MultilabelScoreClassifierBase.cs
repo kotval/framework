@@ -449,7 +449,7 @@ namespace Accord.MachineLearning
         /// A class-label that best described <paramref name="input" /> according
         /// to this classifier.
         /// </returns>
-        public int[] Decide(TInput[] input, int[] result)
+        public virtual int[] Decide(TInput[] input, int[] result)
         {
             var t = (IClassifier<TInput, int>)this;
             for (int i = 0; i < input.Length; i++)
@@ -700,5 +700,16 @@ namespace Accord.MachineLearning
             return Scores(input, result);
         }
 
+
+        /// <summary>
+        /// Views this instance as a multi-class generative classifier.
+        /// </summary>
+        /// <returns>
+        /// This instance seen as an <see cref="IMulticlassLikelihoodClassifier{TInput}" />.
+        /// </returns>
+        public IClassifier<TInput, int> ToMulticlass()
+        {
+            return (IClassifier<TInput, int>)this;
+        }
     }
 }

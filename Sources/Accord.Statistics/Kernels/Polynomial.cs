@@ -213,6 +213,24 @@ namespace Accord.Statistics.Kernels
         }
 
         /// <summary>
+        ///   Projects a set of input points into feature space.
+        /// </summary>
+        /// 
+        /// <param name="inputs">The input points to be projected into feature space.</param>
+        /// 
+        /// <returns>
+        ///   The feature space representation of the given <paramref name="inputs"/> points.
+        /// </returns>
+        /// 
+        public double[][] Transform(double[][] inputs)
+        {
+            double[][] r = new double[inputs.Length][];
+            for (int i = 0; i < inputs.Length; i++)
+                r[i] = Transform(inputs[i]);
+            return r;
+        }
+
+        /// <summary>
         ///   Projects an input point into feature space.
         /// </summary>
         /// 

@@ -34,16 +34,24 @@ namespace Accord.Math.Optimization
     /// <seealso cref="ConjugateGradient"/>
     /// <seealso cref="ResilientBackpropagation"/>
     /// 
-    public interface IGradientOptimizationMethod : IOptimizationMethod
+    public interface IGradientOptimizationMethod : IOptimizationMethod, IGradientOptimizationMethod<double[], double>
     {
-        /// <summary>
-        ///   Gets or sets the function to be optimized.
-        /// </summary>
-        /// 
-        /// <value>The function to be optimized.</value>
-        /// 
-        Func<double[], double> Function { get; set; }
+        // For backward compatibility
 
+    }
+
+    /// <summary>
+    ///   Common interface for function optimization methods which depend on
+    ///   having both an objective function and a gradient function definition
+    ///   available.
+    /// </summary>
+    /// 
+    /// <seealso cref="BroydenFletcherGoldfarbShanno"/>
+    /// <seealso cref="ConjugateGradient"/>
+    /// <seealso cref="ResilientBackpropagation"/>
+    /// 
+    public interface IGradientOptimizationMethod<TInput, TOutput> : IFunctionOptimizationMethod<TInput, TOutput>
+    {
         /// <summary>
         ///   Gets or sets a function returning the gradient
         ///   vector of the function to be optimized for a
@@ -52,7 +60,7 @@ namespace Accord.Math.Optimization
         /// 
         /// <value>The gradient function.</value>
         /// 
-        Func<double[], double[]> Gradient { get; set; }
+        Func<TInput, TInput> Gradient { get; set; }
 
     }
 }
